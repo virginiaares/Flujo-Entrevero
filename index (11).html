@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Flujo de Caja — Campo</title>
+<style>
+  :root{
+    --bg: #EDEFE8;
+    --panel: #FBFBF7;
+    --ink: #1E2620;
+    --ink-soft: #5B6558;
+    --line: #D6D9CC;
+    --forest: #223B2C;
+    --forest-2: #33543E;
+    --wheat: #C9971F;
+    --wheat-soft: #E8C978;
+    --soja: #4C7A5A;
+    --maiz: #D9A441;
+    --neg: #A8492B;
+    --pos: #2F6B45;
+    --radius: 10px;
+    font-size: 15px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);}
+  body{
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding: 22px;
+    min-height:100vh;
+  }
+  h1,h2,h3{
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:16px;
+    margin-bottom:20px;
+    border-bottom: 2px solid var(--forest);
+    padding-bottom:16px;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .brand .mark{
+    width:38px;height:38px;border-radius:8px;
+    background: linear-gradient(135deg, var(--soja) 0 50%, var(--maiz) 50% 100%);
+    flex:none;
+  }
+  .brand h1{font-size:1.5rem; color:var(--forest);}
+  .brand .sub{font-size:.78rem; color:var(--ink-soft); margin-top:2px;}
+  .status{
+    font-size:.72rem;
+    color:var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--pos);}
+  .dot.stale{background:var(--wheat);}
+
+  .filters{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    margin-bottom:20px;
+  }
+  .field{display:flex; flex-direction:column; gap:4px;}
+  .field label{font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft);}
+  .field input, .field select{
+    font-family:inherit; font-size:.85rem;
+    padding:7px 9px; border-radius:6px;
+    border:1px solid var(--line); background:#fff; color:var(--ink);
+  }
+  .field.grow{flex:1; min-width:160px;}
+  .btn{
+    font-family:inherit; font-size:.8rem; font-weight:600;
+    padding:8px 14px; border-radius:6px; border:1px solid var(--forest);
+    background:var(--forest); color:#fff; cursor:pointer;
+  }
+  .btn.ghost{ background:transparent; color:var(--forest); }
+  .btn:hover{opacity:.88;}
+  .btn:active{transform:translateY(1px);}
+  .btn.small{font-size:.72rem; padding:5px 10px;}
+
+  .kpis{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(200px,1fr));
+    gap:14px;
+    margin-bottom:20px;
+  }
+  .kpi{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px 18px;
+    cursor:pointer;
+    transition:box-shadow .15s, border-color .15s;
+    position:relative;
+    overflow:hidden;
+  }
+  .kpi::before{
+    content:"";
+    position:absolute; left:0; top:0; bottom:0; width:4px;
+  }
+  .kpi.ing::before{background:var(--soja);}
+  .kpi.egr::before{background:var(--maiz);}
+  .kpi.net::before{background:var(--forest);}
+  .kpi.acc::before{background:var(--wheat);}
+  .kpi:hover{border-color:var(--forest); box-shadow:0 2px 10px rgba(30,38,32,.08);}
+  .kpi .lbl{font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin-bottom:6px;}
+  .kpi .val{font-family:'IBM Plex Mono', 'Courier New', monospace; font-size:1.35rem; font-weight:600;}
+  .kpi .hint{font-size:.68rem; color:var(--ink-soft); margin-top:4px;}
+  .val.neg{color:var(--neg);}
+  .val.pos{color:var(--pos);}
+
+  .grid{
+    display:grid;
+    grid-template-columns: 2fr 1fr;
+    gap:16px;
+  }
+  @media (max-width: 900px){ .grid{grid-template-columns:1fr;} }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;
+  }
+  .card h3{font-size:.95rem; margin-bottom:2px; color:var(--forest);}
+  .card .card-sub{font-size:.72rem; color:var(--ink-soft); margin-bottom:12px;}
+  .chart-wrap{position:relative; height:320px;}
+  .chart-wrap.small{height:230px;}
+  .chart-wrap svg{width:100%; height:100%; display:block; overflow:visible;}
+  .chart-legend{display:flex; flex-wrap:wrap; gap:12px; margin-top:8px; font-size:.72rem; color:var(--ink-soft);}
+  .chart-legend span{display:inline-flex; align-items:center; gap:5px;}
+  .chart-legend i{width:9px;height:9px;border-radius:2px; display:inline-block;}
+  .svg-tip{
+    position:absolute; pointer-events:none; background:var(--ink); color:#fff;
+    font-size:.68rem; padding:5px 8px; border-radius:5px; white-space:nowrap;
+    transform:translate(-50%,-115%); z-index:5; display:none;
+  }
+  .bar-hit{cursor:pointer;}
+  .empty-note{font-size:.8rem; color:var(--ink-soft); text-align:center; padding:40px 10px;}
+
+  .composition{
+    display:flex; flex-direction:column; gap:14px;
+  }
+  .comp-empty{
+    font-size:.8rem; color:var(--ink-soft); text-align:center; padding:30px 10px;
+    border:1px dashed var(--line); border-radius:8px;
+  }
+  .comp-row{
+    display:flex; align-items:center; gap:8px; font-size:.78rem;
+  }
+  .comp-row .swatch{width:10px;height:10px;border-radius:3px; flex:none;}
+  .comp-row .name{flex:1; color:var(--ink);}
+  .comp-row .amt{font-family:'IBM Plex Mono', monospace; font-weight:600;}
+  .comp-row .bar-bg{
+    height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin-top:2px;
+  }
+  .comp-row .bar-fill{height:100%; border-radius:3px;}
+
+  .legend-tabs{
+    display:flex; gap:6px; margin-bottom:10px;
+  }
+  .legend-tabs button{
+    font-family:inherit; font-size:.72rem; font-weight:600;
+    padding:6px 10px; border-radius:6px; border:1px solid var(--line);
+    background:#fff; color:var(--ink-soft); cursor:pointer;
+  }
+  .legend-tabs button.active{
+    background:var(--forest); color:#fff; border-color:var(--forest);
+  }
+
+  footer{
+    margin-top:22px; font-size:.7rem; color:var(--ink-soft); text-align:center;
+  }
+  a{color:var(--forest-2);}
+
+  .config-panel{
+    margin-top:8px; font-size:.72rem; color:var(--ink-soft);
+  }
+  .config-panel code{background:#fff; border:1px solid var(--line); padding:1px 5px; border-radius:4px;}
+
+  .comp-row.clickable{cursor:pointer; padding:4px; margin:-4px; border-radius:6px; transition:background .12s;}
+  .comp-row.clickable:hover{background:#F1F0E8;}
+  .comp-row .go{font-size:.66rem; color:var(--ink-soft); margin-left:auto;}
+
+  .drawer-backdrop{
+    position:fixed; inset:0; background:rgba(30,38,32,.45);
+    display:none; align-items:flex-end; justify-content:center; z-index:50;
+  }
+  .drawer-backdrop.open{display:flex;}
+  .drawer{
+    background:var(--panel); width:min(720px, 96vw); max-height:78vh;
+    border-radius:14px 14px 0 0; padding:18px 20px 22px; overflow-y:auto;
+    box-shadow:0 -8px 30px rgba(0,0,0,.25);
+  }
+  .drawer-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+  .drawer-head h3{font-size:1.05rem; color:var(--forest);}
+  .drawer-note{font-size:.74rem; color:var(--ink-soft); margin-bottom:14px; line-height:1.4;}
+  .drawer-table-wrap{overflow-x:auto;}
+  table.drawer-table{width:100%; border-collapse:collapse; font-size:.78rem;}
+  table.drawer-table th{
+    text-align:left; font-size:.66rem; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--ink-soft); border-bottom:1px solid var(--line); padding:6px 8px; white-space:nowrap;
+  }
+  table.drawer-table td{
+    padding:7px 8px; border-bottom:1px solid #EFEFE7; font-family:'IBM Plex Mono', monospace; font-size:.76rem; white-space:nowrap;
+  }
+  table.drawer-table tr:hover td{background:#F5F4EC;}
+  .drawer-empty{font-size:.8rem; color:var(--ink-soft); padding:20px 0; text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="mark"></div>
+    <div>
+      <h1>Flujo de Caja</h1>
+      <div class="sub">Campo · Soja / Maíz · en USD</div>
+    </div>
+  </div>
+  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+    <div class="status" id="statusLine"><span class="dot stale" id="statusDot"></span><span id="statusText">Datos diarios detallados hasta 30/11/2026 + proyección mensual hasta 11/2027</span></div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn ghost small" id="btnConfig">Conectar con Apps Script</button>
+      <button class="btn small" id="btnRefreshLive">Actualizar ahora</button>
+    </div>
+  </div>
+</div>
+
+<div class="card config-panel" id="configPanel" style="display:none; margin-bottom:20px;">
+  <div class="field" style="margin-bottom:10px;">
+    <label>URL de tu Apps Script (termina en /exec)</label>
+    <input type="text" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/AKfycb.../exec" style="width:100%; max-width:600px;">
+    <button class="btn small" id="btnSaveUrl" style="margin-top:8px; width:fit-content;">Guardar y traer datos</button>
+  </div>
+  <b>Importante:</b> esto solo funciona si abrís este archivo <b>fuera</b> del chat de Claude — descargado en tu computadora
+  (doble click para abrirlo en el navegador) o subido a un hosting propio. Dentro del visor de Claude.ai, la conexión sigue
+  bloqueada por el sandbox, sin importar la URL. La URL que pongas queda guardada en este mismo archivo la próxima vez que lo
+  guardes/descargues — si lo volvés a pedir en el chat, decime la URL para que la dejemos precargada.
+</div>
+
+<div class="filters">
+  <div class="field">
+    <label>Desde</label>
+    <input type="date" id="dateFrom">
+  </div>
+  <div class="field">
+    <label>Hasta</label>
+    <input type="date" id="dateTo">
+  </div>
+  <div class="field">
+    <label>Mes</label>
+    <select id="monthSelect"><option value="">Todos</option></select>
+  </div>
+  <div class="field">
+    <label>Vista de gráficos</label>
+    <div class="legend-tabs" style="margin:0;">
+      <button class="view-tab active" data-view="daily">Diario</button>
+      <button class="view-tab" data-view="monthly">Mensual</button>
+    </div>
+  </div>
+  <div class="field grow"></div>
+  <button class="btn ghost small" id="btnReset">Limpiar filtros</button>
+</div>
+
+<div class="kpis">
+  <div class="kpi ing" data-panel="ing">
+    <div class="lbl">Total Ingresos</div>
+    <div class="val pos" id="kpiIng">$0</div>
+    <div class="hint">Click para ver composición →</div>
+  </div>
+  <div class="kpi egr" data-panel="egr">
+    <div class="lbl">Total Egresos</div>
+    <div class="val neg" id="kpiEgr">$0</div>
+    <div class="hint">Click para ver composición →</div>
+  </div>
+  <div class="kpi net" data-panel="net">
+    <div class="lbl">Flujo Neto (período)</div>
+    <div class="val" id="kpiNet">$0</div>
+    <div class="hint" id="kpiNetHint">&nbsp;</div>
+  </div>
+  <div class="kpi acc" data-panel="acc">
+    <div class="lbl">Saldo Acumulado (cierre)</div>
+    <div class="val" id="kpiAcc">$0</div>
+    <div class="hint" id="kpiAccHint">&nbsp;</div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>Evolución del flujo</h3>
+    <div class="card-sub" id="flowCardSub">Barras: ingresos vs egresos diarios · Línea: saldo acumulado</div>
+    <div class="chart-wrap" id="flowChart"></div>
+    <div class="chart-legend" id="flowLegend"></div>
+  </div>
+
+  <div class="card">
+    <h3>Composición</h3>
+    <div class="card-sub" id="compSub">Seleccioná Ingresos o Egresos arriba</div>
+    <div class="legend-tabs">
+      <button class="tab-ing active" data-tab="ing">Ingresos</button>
+      <button class="tab-egr" data-tab="egr">Egresos</button>
+    </div>
+    <div class="chart-wrap small" id="compChart"></div>
+    <div class="composition" id="compList"></div>
+  </div>
+</div>
+
+<div class="grid" style="margin-top:16px;">
+  <div class="card">
+    <h3>Ingresos por categoría</h3>
+    <div class="card-sub">Barras apiladas — cada color es una categoría de ingreso</div>
+    <div class="chart-wrap" id="stackIngChart"></div>
+    <div class="chart-legend" id="stackIngLegend"></div>
+  </div>
+  <div class="card">
+    <h3>Egresos por categoría</h3>
+    <div class="card-sub">Barras apiladas — cada color es una categoría de egreso</div>
+    <div class="chart-wrap" id="stackEgrChart"></div>
+    <div class="chart-legend" id="stackEgrLegend"></div>
+  </div>
+</div>
+
+<footer>
+  Dashboard generado a partir de tu Google Sheet. Los montos en el sheet están en la moneda tal como cargada (mezcla de pesos y dólares según fila de origen — revisar el sheet original para el detalle de moneda por movimiento).
+  Hasta el 30/11/2026 los datos son diarios (tabla de Flujo Neto); de diciembre 2026 en adelante el sheet solo tiene el resumen
+  mensual, así que esos puntos del gráfico representan el total de todo el mes (no un día puntual) — el drill-down por categoría
+  funciona igual, pero no hay drill-down por día individual en esos meses.
+</footer>
+
+<div class="drawer-backdrop" id="drawerBackdrop">
+  <div class="drawer" id="drawer">
+    <div class="drawer-head">
+      <h3 id="drawerTitle">Detalle</h3>
+      <button class="btn ghost small" id="drawerClose">Cerrar ✕</button>
+    </div>
+    <div class="drawer-note" id="drawerNote"></div>
+    <div class="drawer-table-wrap"><table class="drawer-table" id="drawerTable"></table></div>
+  </div>
+</div>
+
+<script>
+const RAW_DATA = [{"fecha": "2026-08-20", "efectivo": 439.47, "banco": 10700.39, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 11139.87, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 0.0, "total_egresos": 0.0, "flujo_neto": 11139.87, "flujo_acumulado": 11139.87}, {"fecha": "2026-08-21", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 3215.53, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 106.23, "total_egresos": 3321.77, "flujo_neto": -3321.77, "flujo_acumulado": 7818.1}, {"fecha": "2026-08-24", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 26241.7, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 26241.7, "cheques": 1889.34, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 11.31, "total_egresos": 1900.65, "flujo_neto": 24341.05, "flujo_acumulado": 32159.15}, {"fecha": "2026-08-25", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 1452.85, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 226.05, "total_egresos": 1678.9, "flujo_neto": -1678.9, "flujo_acumulado": 30480.26}, {"fecha": "2026-08-26", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 1411.21, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 32.16, "total_egresos": 1443.37, "flujo_neto": -1443.37, "flujo_acumulado": 29036.88}, {"fecha": "2026-08-27", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 2024.29, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 178.05, "total_egresos": 2202.34, "flujo_neto": -2202.34, "flujo_acumulado": 26834.55}, {"fecha": "2026-08-28", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 11873.76, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 296.38, "total_egresos": 12170.14, "flujo_neto": -12170.14, "flujo_acumulado": 14664.41}, {"fecha": "2026-08-29", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 138753.45, "total_ingresos": 138753.45, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 39523.63, "proveedores_agro": 0.0, "proveedores_otros": 0.0, "total_egresos": 39523.63, "flujo_neto": 99229.82, "flujo_acumulado": 113894.23}, {"fecha": "2026-08-31", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 90187.41, "venta_maiz": 0.0, "total_ingresos": 90187.41, "cheques": 832.12, "prestamos": 0.0, "arrendamiento": 91379.31, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 37388.52, "proveedores_otros": 0.0, "total_egresos": 129599.95, "flujo_neto": -39412.55, "flujo_acumulado": 74481.68}, {"fecha": "2026-09-01", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 58207.5, "total_ingresos": 58207.5, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 174405.27, "proveedores_otros": 2398.72, "total_egresos": 176803.99, "flujo_neto": -118596.49, "flujo_acumulado": -44114.81}, {"fecha": "2026-09-03", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 1643.68, "total_egresos": 1643.68, "flujo_neto": -1643.68, "flujo_acumulado": -45758.49}, {"fecha": "2026-09-04", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 57420.0, "total_ingresos": 57420.0, "cheques": 1464.14, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 0.0, "total_egresos": 1464.14, "flujo_neto": 55955.86, "flujo_acumulado": 10197.38}, {"fecha": "2026-09-11", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 8097.17, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 0.0, "total_egresos": 8097.17, "flujo_neto": -8097.17, "flujo_acumulado": 2100.21}, {"fecha": "2026-09-14", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 1349.53, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 0.0, "total_egresos": 1349.53, "flujo_neto": -1349.53, "flujo_acumulado": 750.68}, {"fecha": "2026-09-15", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 2024.29, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 0.0, "total_egresos": 2024.29, "flujo_neto": -2024.29, "flujo_acumulado": -1273.61}, {"fecha": "2026-09-16", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 2699.06, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 0.0, "total_egresos": 2699.06, "flujo_neto": -2699.06, "flujo_acumulado": -3972.66}, {"fecha": "2026-09-17", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 4048.58, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 0.0, "total_egresos": 4048.58, "flujo_neto": -4048.58, "flujo_acumulado": -8021.25}, {"fecha": "2026-09-18", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 4652.05, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 0.0, "total_egresos": 4652.05, "flujo_neto": -4652.05, "flujo_acumulado": -12673.3}, {"fecha": "2026-09-23", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 13815.12, "total_egresos": 13815.12, "flujo_neto": -13815.12, "flujo_acumulado": -26488.42}, {"fecha": "2026-09-25", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 80000.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 0.0, "total_egresos": 80000.0, "flujo_neto": -80000.0, "flujo_acumulado": -106488.42}, {"fecha": "2026-10-01", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 10136.45, "total_egresos": 10136.45, "flujo_neto": -10136.45, "flujo_acumulado": -116624.87}, {"fecha": "2026-10-18", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 1905.76, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 0.0, "total_egresos": 1905.76, "flujo_neto": -1905.76, "flujo_acumulado": -118530.63}, {"fecha": "2026-10-31", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 41375.23, "total_ingresos": 41375.23, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 7956.0, "anticipos_comerciales": 0.0, "proveedores_agro": 53490.47, "proveedores_otros": 33939.39, "total_egresos": 95385.86, "flujo_neto": -54010.63, "flujo_acumulado": -172541.26}, {"fecha": "2026-11-01", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 2398.72, "total_egresos": 2398.72, "flujo_neto": -2398.72, "flujo_acumulado": -174939.98}, {"fecha": "2026-11-30", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 145049.41, "venta_maiz": 0.0, "total_ingresos": 145049.41, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 7956.0, "anticipos_comerciales": 146966.36, "proveedores_agro": 0.0, "proveedores_otros": 0.0, "total_egresos": 154922.36, "flujo_neto": -9872.95, "flujo_acumulado": -184812.93}, {"fecha": "2026-12-01", "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 2398.72, "total_egresos": 2398.72, "flujo_neto": -2398.72, "flujo_acumulado": -187211.65}, {"fecha": "2026-12-31", "monthly": true, "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 42920.64, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 42920.64, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 17470.05, "anticipos_comerciales": 0.0, "proveedores_agro": 3160.6, "proveedores_otros": 2398.72, "total_egresos": 23029.37, "flujo_neto": -23029.37, "flujo_acumulado": -207842.31}, {"fecha": "2027-01-31", "monthly": true, "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 74256.0, "anticipos_comerciales": 0.0, "proveedores_agro": 3242.17, "proveedores_otros": 3277.38, "total_egresos": 80775.55, "flujo_neto": -37854.91, "flujo_acumulado": -245697.22}, {"fecha": "2027-02-28", "monthly": true, "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 200385.38, "venta_maiz": 209810.59, "total_ingresos": 410195.96, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 2398.72, "total_egresos": 2398.72, "flujo_neto": -2398.72, "flujo_acumulado": -248095.94}, {"fecha": "2027-03-31", "monthly": true, "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 2398.72, "total_egresos": 2398.72, "flujo_neto": 407797.24, "flujo_acumulado": 159701.3}, {"fecha": "2027-04-30", "monthly": true, "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 3277.38, "total_egresos": 3277.38, "flujo_neto": -3277.38, "flujo_acumulado": 156423.92}, {"fecha": "2027-05-31", "monthly": true, "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 856680.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 2398.72, "total_egresos": 859078.72, "flujo_neto": -859078.72, "flujo_acumulado": -702654.8}, {"fecha": "2027-06-30", "monthly": true, "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 3277.38, "total_egresos": 3277.38, "flujo_neto": -3277.38, "flujo_acumulado": -705932.18}, {"fecha": "2027-07-31", "monthly": true, "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 2398.72, "total_egresos": 2398.72, "flujo_neto": -2398.72, "flujo_acumulado": -708330.9}, {"fecha": "2027-08-31", "monthly": true, "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 2398.72, "total_egresos": 2398.72, "flujo_neto": -2398.72, "flujo_acumulado": -710729.62}, {"fecha": "2027-09-30", "monthly": true, "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 3277.38, "total_egresos": 3277.38, "flujo_neto": -3277.38, "flujo_acumulado": -714007.0}, {"fecha": "2027-10-31", "monthly": true, "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 2398.72, "total_egresos": 2398.72, "flujo_neto": -2398.72, "flujo_acumulado": -716405.72}, {"fecha": "2027-11-30", "monthly": true, "efectivo": 0.0, "banco": 0.0, "cheques_cartera": 0.0, "anticipo": 0.0, "venta_trigo": 0.0, "venta_soja": 0.0, "venta_maiz": 0.0, "total_ingresos": 0.0, "cheques": 0.0, "prestamos": 0.0, "arrendamiento": 0.0, "gastos_directos": 0.0, "anticipos_comerciales": 0.0, "proveedores_agro": 0.0, "proveedores_otros": 3277.38, "total_egresos": 3277.38, "flujo_neto": -3277.38, "flujo_acumulado": -719683.1}];
+
+const CATS_ING = [
+  {key:'efectivo', label:'Efectivo', color:'#6FA8DC'},
+  {key:'banco', label:'Banco', color:'#1F5C8B'},
+  {key:'cheques_cartera', label:'Cheques en cartera', color:'#9DBFA3'},
+  {key:'anticipo', label:'Anticipo', color:'#B08FC7'},
+  {key:'venta_trigo', label:'Venta cereal — Trigo', color:'#C9971F'},
+  {key:'venta_soja', label:'Venta cereal — Soja', color:'#2F6B45'},
+  {key:'venta_maiz', label:'Venta cereal — Maíz', color:'#D9A441'},
+];
+const CATS_EGR = [
+  {key:'cheques', label:'Cheques', color:'#A8492B'},
+  {key:'prestamos', label:'Préstamos', color:'#C97B4A'},
+  {key:'arrendamiento', label:'Arrendamiento', color:'#8A5A2B'},
+  {key:'gastos_directos', label:'Gastos Directos', color:'#946B3E'},
+  {key:'anticipos_comerciales', label:'Anticipos Comerciales', color:'#D46A6A'},
+  {key:'proveedores_agro', label:'Proveedores Agro', color:'#B36B3C'},
+  {key:'proveedores_otros', label:'Proveedores Otros', color:'#D8A87A'},
+];
+
+// Filas de origen tomadas de las otras tablas del mismo Google Sheet (contratos de venta,
+// alquileres, cheques, préstamos, facturas de proveedores, gastos directos de campo, etc.)
+const DETAIL_SOURCES = {
+  venta_soja: {
+    note: 'Filas de la tabla de Contratos de Venta — Grano: SOJA (monto = "Saldo", neto de comisión y flete, que es lo que impacta en el Flujo Neto). Filtradas por "Fecha de pago/cobro" contra el período elegido arriba.',
+    cols: ['Razón Social','TN Vendidas','Precio USD','Saldo neto','Modalidad','Fecha de pago'],
+    rows: [
+      {d:'2026-08-31', c:['CONCI','250','$365,52 (fijado)','$90.187,41','Anticipo financiero','31/08/2026']},
+      {d:'2026-11-30', c:['CARGILL','420','A fijar','$145.049,41','Anticipo financiero','30/11/2026']},
+      {d:'2027-01-31', c:['SEMILLA','40','A fijar','$0,00','Semilla','31/01/2027']},
+      {d:'2027-03-01', c:['SALDO','580','$350,00 (a fijar)','$200.385,38','Pendiente','01/03/2027']},
+    ]
+  },
+  venta_maiz: {
+    note: 'Filas de la tabla de Contratos de Venta — Grano: MAIZ (monto = "Saldo", neto de comisión y flete). Filtradas por "Fecha de cobro/entrega" contra el período elegido arriba.',
+    cols: ['Razón Social','TN Vendidas','Precio USD','Saldo neto','Modalidad','Fecha'],
+    rows: [
+      {d:'2026-08-29', c:['CONCI','500','$188,87','$93.490,65','Forward','29/08/2026']},
+      {d:'2026-08-29', c:['CONCI','98','$180,00','$17.463,60','Forward','29/08/2026']},
+      {d:'2026-08-29', c:['CONCI (pend. liquidar)','156','$180,00','$27.799,20','Forward','29/08/2026']},
+      {d:'2026-09-01', c:['NORTE FERTIL','300','$195,00','$58.207,50','Forward','01/09/2026']},
+      {d:'2026-09-04', c:['NEGOCIOS DE GRANOS','290','$200,00','$57.420,00','Forward','04/09/2026']},
+      {d:'2026-10-31', c:['ALTEC','282','$190,00','$41.375,23','Canje','31/10/2026']},
+      {d:'2027-03-01', c:['SALDO','1430','$190,00','$209.810,59','Forward','01/03/2027']},
+    ]
+  },
+  venta_trigo: {
+    note: 'Filas de la tabla de Contratos de Venta — Grano: TRIGO. Filtradas por "Fecha de entrega" contra el período elegido arriba.',
+    cols: ['Razón Social','TN Vendidas','Precio USD','Saldo neto','Fecha de entrega'],
+    rows: [
+      {d:'2027-01-01', c:['SALDO','246','$225,00','$42.920,64','01/01/2027']},
+    ]
+  },
+  arrendamiento: {
+    note: 'Filas de la tabla de Alquileres (campo La Rosita). Filtradas por "Fecha de pago" contra el período elegido arriba.',
+    cols: ['Fecha de pago','Entidad','Tn','Fijado','Precio','Monto'],
+    rows: [
+      {d:'2026-08-25', c:['25/08/2026','Alquiler La Rosita','250,00','Sí','$365,52','$91.379,31']},
+      {d:'2026-09-25', c:['25/09/2026','Alquiler La Rosita','250,00','No','$320,00','$80.000,00']},
+    ]
+  },
+  // 'cheques' se removió intencionalmente: la tabla de cheques del sheet cambia de estructura seguido
+  // (antes 4 pagos grandes, ahora un libro con TC y estado Cobrado/Pendiente). Para evitar desincronización,
+  // esta categoría usa el fallback que lee directo de la propia tabla de Flujo Neto (ver openDrawer).
+  prestamos: {
+    note: 'La categoría "Préstamos" del Flujo Neto está en $0 en todos los períodos cargados hasta ahora, así que no tiene filas de detalle que mostrar todavía.',
+    cols: [],
+    rows: []
+  },
+  gastos_directos: {
+    note: 'Filas de la tabla de Labores / Gastos Directos de campo. Filtradas por "Fecha" contra el período elegido arriba.',
+    cols: ['Campo','Tipo','Has','Precio','Monto','Fecha'],
+    rows: [
+      {d:'2026-10-31', c:['Puyehue','Pulverización','1200','$6,00','$7.956,00','31/10/2026']},
+      {d:'2026-11-30', c:['Puyehue','Pulverización','1200','$6,00','$7.956,00','30/11/2026']},
+      {d:'2026-12-31', c:['Puyehue','Pulverización','1200','$6,00','$7.956,00','31/12/2026']},
+      {d:'2026-12-31', c:['Puyehue','Cosecha','123','$70,00','$9.514,05','31/12/2026']},
+      {d:'2027-01-31', c:['Puyehue','Pulverización','1200','$6,00','$7.956,00','31/01/2027']},
+      {d:'2027-01-31', c:['Puyehue','Siembra','1200','$50,00','$66.300,00','31/01/2027']},
+      {d:'2027-05-31', c:['San Jorge','Insumos','1100','$300,00','$399.300,00','31/05/2027']},
+      {d:'2027-05-31', c:['Puyehue','Insumos','1260','$300,00','$457.380,00','31/05/2027']},
+    ]
+  },
+  proveedores_agro: {
+    note: 'Filas de la tabla de facturas de Agropecuarias (insumos, mayoría en dólares). Filtradas por la 2ª columna "Vto." (fecha real de pago) contra el período elegido arriba.',
+    cols: ['Agropecuaria','Comprobante','Importe','Artículo','Moneda','Vto. de pago'],
+    rows: [
+      {d:'2026-08-24', c:['Agroempresa','295801','$18.756,94','Cletodim 24 Kemsure x 20 Lts','dólares','24/08/2026']},
+      {d:'2026-08-24', c:['Agroempresa','300184','$5.653,60','Benazolin 20 + Fomesafen','dólares','24/08/2026']},
+      {d:'2026-08-24', c:['El Norte Cordobés','1129','$7.503,75','Maíz','dólares','24/08/2026']},
+      {d:'2026-08-24', c:['El Norte Cordobés','1163','$5.229,14','Maíz','dólares','24/08/2026']},
+      {d:'2026-08-24', c:['El Norte Cordobés','567','$245,09','Diferencia de cambio','pesos','24/08/2026']},
+      {d:'2026-08-31', c:['Norte Fértil','14104','$6.551,68','Maíz','dólares','31/08/2026']},
+      {d:'2026-08-31', c:['Norte Fértil','14242','$4.020,59','S-Metolaclor x 20 Lt','dólares','31/08/2026']},
+      {d:'2026-08-31', c:['Norte Fértil','14298','$480,49','Manto 25','dólares','31/08/2026']},
+      {d:'2026-08-31', c:['Norte Fértil','14422','$9.546,90','Cletodim 24% x 20 Lts','dólares','31/08/2026']},
+      {d:'2026-08-31', c:['Norte Fértil','14334','$588,67','Dicamba Bemus','dólares','31/08/2026']},
+      {d:'2026-08-31', c:['Norte Fértil','14429','$699,86','2,4 D Etil Hexílico','dólares','31/08/2026']},
+      {d:'2026-08-31', c:['Norte Fértil','14506','$6.131,80','Aceite metilado Pala Óleo','dólares','31/08/2026']},
+      {d:'2026-08-31', c:['Norte Fértil','14600','$412,85','Bifentrin 25%','dólares','31/08/2026']},
+      {d:'2026-08-31', c:['Norte Fértil','14637','$1.678,88','Azoxi 20 + Cipro 8','dólares','31/08/2026']},
+      {d:'2026-08-31', c:['Norte Fértil','14694','$3.997,84','Glufosinato de Amonio 50','dólares','31/08/2026']},
+      {d:'2026-08-31', c:['Norte Fértil','6052','$610,37','Diferencia de cambio','pesos','31/08/2026']},
+      {d:'2026-10-31', c:['Norte Fértil','—','$139.685,34','Insumos varios (a facturar)','dólares','31/10/2026']},
+      {d:'2027-01-02', c:['Conci S.R.L.','00009-00005883','$3.102,56','Silo bolsa Ipesa','dólares','02/01/2027']},
+      {d:'2027-01-02', c:['Conci S.R.L.','00009-00005883','$139,61','Intereses','dólares','02/01/2027']},
+      {d:'2026-10-31', c:['Alltec S.A','00030-00018834','$39.204,00','A 35 T Gold x 10 Lt','dólares','31/10/2026']},
+      {d:'2026-10-31', c:['Alltec S.A','00030-00018834','$11.706,75','WRIV x 1 Lt','dólares','31/10/2026']},
+      {d:'2026-10-31', c:['Alltec S.A','00030-00018834','$159,72','All-Broken x 1L','dólares','31/10/2026']},
+      {d:'2026-10-31', c:['Alltec S.A','00030-00018834','$2.420,00','A 35 T Gold x 20 Lt','dólares','31/10/2026']},
+      {d:'2026-12-31', c:['Laboratorios Lopez SRL','00005-00002052','$3.160,60','Nodupack Trigo','pesos','31/12/2026']},
+    ]
+  },
+  proveedores_otros: {
+    note: 'Filas de la tabla de Gastos personales / fijos mensuales (se repiten aprox. iguales cada mes, más honorarios de contador cada 2-3 meses). Filtradas por "Fecha de pago" contra el período elegido arriba.',
+    cols: ['Fecha de pago','Entidad','Monto'],
+    rows: [
+      {d:'2026-09-01', c:['01/09/2026','Supermercado','$54,78']},
+      {d:'2026-09-01', c:['01/09/2026','Internet','$11,74']},
+      {d:'2026-09-01', c:['01/09/2026','Alquiler (personal)','$1.239,00']},
+      {d:'2026-09-01', c:['01/09/2026','Gas','$39,78']},
+      {d:'2026-09-01', c:['01/09/2026','Luz','$112,81']},
+      {d:'2026-09-01', c:['01/09/2026','Abono celulares','$5,48']},
+      {d:'2026-09-01', c:['01/09/2026','María','$113,47']},
+      {d:'2026-09-01', c:['01/09/2026','ARCA','$652,10']},
+      {d:'2026-09-01', c:['01/09/2026','Alarma','$39,13']},
+      {d:'2026-09-01', c:['01/09/2026','Yoli','$32,61']},
+      {d:'2026-09-01', c:['01/09/2026','Varios','$97,82']},
+      {d:'2026-10-01', c:['01/10/2026','Supermercado','$54,78']},
+      {d:'2026-10-01', c:['01/10/2026','Internet','$11,74']},
+      {d:'2026-10-01', c:['01/10/2026','Alquiler (personal)','$1.239,00']},
+      {d:'2026-10-01', c:['01/10/2026','Gas','$39,78']},
+      {d:'2026-10-01', c:['01/10/2026','Luz','$112,81']},
+      {d:'2026-10-01', c:['01/10/2026','Abono celulares','$5,48']},
+      {d:'2026-10-01', c:['01/10/2026','María','$113,47']},
+      {d:'2026-10-01', c:['01/10/2026','ARCA','$652,10']},
+      {d:'2026-10-01', c:['01/10/2026','Alarma','$39,13']},
+      {d:'2026-10-01', c:['01/10/2026','Yoli','$32,61']},
+      {d:'2026-10-01', c:['01/10/2026','Varios','$97,82']},
+      {d:'2026-10-01', c:['01/10/2026','Contador','$878,66']},
+      {d:'2026-11-01', c:['01/11/2026','Supermercado','$54,78']},
+      {d:'2026-11-01', c:['01/11/2026','Internet','$11,74']},
+      {d:'2026-11-01', c:['01/11/2026','Alquiler (personal)','$1.239,00']},
+      {d:'2026-11-01', c:['01/11/2026','Gas','$39,78']},
+      {d:'2026-11-01', c:['01/11/2026','Luz','$112,81']},
+      {d:'2026-11-01', c:['01/11/2026','Abono celulares','$5,48']},
+      {d:'2026-11-01', c:['01/11/2026','María','$113,47']},
+      {d:'2026-11-01', c:['01/11/2026','ARCA','$652,10']},
+      {d:'2026-11-01', c:['01/11/2026','Alarma','$39,13']},
+      {d:'2026-11-01', c:['01/11/2026','Yoli','$32,61']},
+      {d:'2026-11-01', c:['01/11/2026','Varios','$97,82']},
+      {d:'2026-12-01', c:['01/12/2026','Supermercado','$54,78']},
+      {d:'2026-12-01', c:['01/12/2026','Internet','$11,74']},
+      {d:'2026-12-01', c:['01/12/2026','Alquiler (personal)','$1.239,00']},
+      {d:'2026-12-01', c:['01/12/2026','Gas','$39,78']},
+      {d:'2026-12-01', c:['01/12/2026','Luz','$112,81']},
+      {d:'2026-12-01', c:['01/12/2026','Abono celulares','$5,48']},
+      {d:'2026-12-01', c:['01/12/2026','María','$113,47']},
+      {d:'2026-12-01', c:['01/12/2026','ARCA','$652,10']},
+      {d:'2026-12-01', c:['01/12/2026','Alarma','$39,13']},
+      {d:'2026-12-01', c:['01/12/2026','Yoli','$32,61']},
+      {d:'2026-12-01', c:['01/12/2026','Varios','$97,82']},
+      {d:'2027-01-01', c:['01/01/2027','Supermercado','$54,78']},
+      {d:'2027-01-01', c:['01/01/2027','Internet','$11,74']},
+      {d:'2027-01-01', c:['01/01/2027','Alquiler (personal)','$1.239,00']},
+      {d:'2027-01-01', c:['01/01/2027','Gas','$39,78']},
+      {d:'2027-01-01', c:['01/01/2027','Luz','$112,81']},
+      {d:'2027-01-01', c:['01/01/2027','Abono celulares','$5,48']},
+      {d:'2027-01-01', c:['01/01/2027','María','$113,47']},
+      {d:'2027-01-01', c:['01/01/2027','ARCA','$652,10']},
+      {d:'2027-01-01', c:['01/01/2027','Alarma','$39,13']},
+      {d:'2027-01-01', c:['01/01/2027','Yoli','$32,61']},
+      {d:'2027-01-01', c:['01/01/2027','Varios','$97,82']},
+      {d:'2027-01-01', c:['01/01/2027','Contador','$878,66']},
+      {d:'2027-02-01', c:['01/02/2027','Supermercado','$54,78']},
+      {d:'2027-02-01', c:['01/02/2027','Internet','$11,74']},
+      {d:'2027-02-01', c:['01/02/2027','Alquiler (personal)','$1.239,00']},
+      {d:'2027-02-01', c:['01/02/2027','Gas','$39,78']},
+      {d:'2027-02-01', c:['01/02/2027','Luz','$112,81']},
+      {d:'2027-02-01', c:['01/02/2027','Abono celulares','$5,48']},
+      {d:'2027-02-01', c:['01/02/2027','María','$113,47']},
+      {d:'2027-02-01', c:['01/02/2027','ARCA','$652,10']},
+      {d:'2027-02-01', c:['01/02/2027','Alarma','$39,13']},
+      {d:'2027-02-01', c:['01/02/2027','Yoli','$32,61']},
+      {d:'2027-02-01', c:['01/02/2027','Varios','$97,82']},
+      {d:'2027-03-01', c:['01/03/2027','Supermercado','$54,78']},
+      {d:'2027-03-01', c:['01/03/2027','Internet','$11,74']},
+      {d:'2027-03-01', c:['01/03/2027','Alquiler (personal)','$1.239,00']},
+      {d:'2027-03-01', c:['01/03/2027','Gas','$39,78']},
+      {d:'2027-03-01', c:['01/03/2027','Luz','$112,81']},
+      {d:'2027-03-01', c:['01/03/2027','Abono celulares','$5,48']},
+      {d:'2027-03-01', c:['01/03/2027','María','$113,47']},
+      {d:'2027-03-01', c:['01/03/2027','ARCA','$652,10']},
+      {d:'2027-03-01', c:['01/03/2027','Alarma','$39,13']},
+      {d:'2027-03-01', c:['01/03/2027','Yoli','$32,61']},
+      {d:'2027-03-01', c:['01/03/2027','Varios','$97,82']},
+      {d:'2027-04-01', c:['01/04/2027','Supermercado','$54,78']},
+      {d:'2027-04-01', c:['01/04/2027','Internet','$11,74']},
+      {d:'2027-04-01', c:['01/04/2027','Alquiler (personal)','$1.239,00']},
+      {d:'2027-04-01', c:['01/04/2027','Gas','$39,78']},
+      {d:'2027-04-01', c:['01/04/2027','Luz','$112,81']},
+      {d:'2027-04-01', c:['01/04/2027','Abono celulares','$5,48']},
+      {d:'2027-04-01', c:['01/04/2027','María','$113,47']},
+      {d:'2027-04-01', c:['01/04/2027','ARCA','$652,10']},
+      {d:'2027-04-01', c:['01/04/2027','Alarma','$39,13']},
+      {d:'2027-04-01', c:['01/04/2027','Yoli','$32,61']},
+      {d:'2027-04-01', c:['01/04/2027','Varios','$97,82']},
+      {d:'2027-04-01', c:['01/04/2027','Contador','$878,66']},
+      {d:'2027-05-01', c:['01/05/2027','Supermercado','$54,78']},
+      {d:'2027-05-01', c:['01/05/2027','Internet','$11,74']},
+      {d:'2027-05-01', c:['01/05/2027','Alquiler (personal)','$1.239,00']},
+      {d:'2027-05-01', c:['01/05/2027','Gas','$39,78']},
+      {d:'2027-05-01', c:['01/05/2027','Luz','$112,81']},
+      {d:'2027-05-01', c:['01/05/2027','Abono celulares','$5,48']},
+      {d:'2027-05-01', c:['01/05/2027','María','$113,47']},
+      {d:'2027-05-01', c:['01/05/2027','ARCA','$652,10']},
+      {d:'2027-05-01', c:['01/05/2027','Alarma','$39,13']},
+      {d:'2027-05-01', c:['01/05/2027','Yoli','$32,61']},
+      {d:'2027-05-01', c:['01/05/2027','Varios','$97,82']},
+      {d:'2027-06-01', c:['01/06/2027','Supermercado','$54,78']},
+      {d:'2027-06-01', c:['01/06/2027','Internet','$11,74']},
+      {d:'2027-06-01', c:['01/06/2027','Alquiler (personal)','$1.239,00']},
+      {d:'2027-06-01', c:['01/06/2027','Gas','$39,78']},
+      {d:'2027-06-01', c:['01/06/2027','Luz','$112,81']},
+      {d:'2027-06-01', c:['01/06/2027','Abono celulares','$5,48']},
+      {d:'2027-06-01', c:['01/06/2027','María','$113,47']},
+      {d:'2027-06-01', c:['01/06/2027','ARCA','$652,10']},
+      {d:'2027-06-01', c:['01/06/2027','Alarma','$39,13']},
+      {d:'2027-06-01', c:['01/06/2027','Yoli','$32,61']},
+      {d:'2027-06-01', c:['01/06/2027','Varios','$97,82']},
+      {d:'2027-06-01', c:['01/06/2027','Contador','$878,66']},
+      {d:'2027-07-01', c:['01/07/2027','Supermercado','$54,78']},
+      {d:'2027-07-01', c:['01/07/2027','Internet','$11,74']},
+      {d:'2027-07-01', c:['01/07/2027','Alquiler (personal)','$1.239,00']},
+      {d:'2027-07-01', c:['01/07/2027','Gas','$39,78']},
+      {d:'2027-07-01', c:['01/07/2027','Luz','$112,81']},
+      {d:'2027-07-01', c:['01/07/2027','Abono celulares','$5,48']},
+      {d:'2027-07-01', c:['01/07/2027','María','$113,47']},
+      {d:'2027-07-01', c:['01/07/2027','ARCA','$652,10']},
+      {d:'2027-07-01', c:['01/07/2027','Alarma','$39,13']},
+      {d:'2027-07-01', c:['01/07/2027','Yoli','$32,61']},
+      {d:'2027-07-01', c:['01/07/2027','Varios','$97,82']},
+      {d:'2027-08-01', c:['01/08/2027','Supermercado','$54,78']},
+      {d:'2027-08-01', c:['01/08/2027','Internet','$11,74']},
+      {d:'2027-08-01', c:['01/08/2027','Alquiler (personal)','$1.239,00']},
+      {d:'2027-08-01', c:['01/08/2027','Gas','$39,78']},
+      {d:'2027-08-01', c:['01/08/2027','Luz','$112,81']},
+      {d:'2027-08-01', c:['01/08/2027','Abono celulares','$5,48']},
+      {d:'2027-08-01', c:['01/08/2027','María','$113,47']},
+      {d:'2027-08-01', c:['01/08/2027','ARCA','$652,10']},
+      {d:'2027-08-01', c:['01/08/2027','Alarma','$39,13']},
+      {d:'2027-08-01', c:['01/08/2027','Yoli','$32,61']},
+      {d:'2027-08-01', c:['01/08/2027','Varios','$97,82']},
+      {d:'2027-09-01', c:['01/09/2027','Supermercado','$54,78']},
+      {d:'2027-09-01', c:['01/09/2027','Internet','$11,74']},
+      {d:'2027-09-01', c:['01/09/2027','Alquiler (personal)','$1.239,00']},
+      {d:'2027-09-01', c:['01/09/2027','Gas','$39,78']},
+      {d:'2027-09-01', c:['01/09/2027','Luz','$112,81']},
+      {d:'2027-09-01', c:['01/09/2027','Abono celulares','$5,48']},
+      {d:'2027-09-01', c:['01/09/2027','María','$113,47']},
+      {d:'2027-09-01', c:['01/09/2027','ARCA','$652,10']},
+      {d:'2027-09-01', c:['01/09/2027','Alarma','$39,13']},
+      {d:'2027-09-01', c:['01/09/2027','Yoli','$32,61']},
+      {d:'2027-09-01', c:['01/09/2027','Varios','$97,82']},
+      {d:'2027-09-01', c:['01/09/2027','Contador','$878,66']},
+      {d:'2027-10-01', c:['01/10/2027','Supermercado','$54,78']},
+      {d:'2027-10-01', c:['01/10/2027','Internet','$11,74']},
+      {d:'2027-10-01', c:['01/10/2027','Alquiler (personal)','$1.239,00']},
+      {d:'2027-10-01', c:['01/10/2027','Gas','$39,78']},
+      {d:'2027-10-01', c:['01/10/2027','Luz','$112,81']},
+      {d:'2027-10-01', c:['01/10/2027','Abono celulares','$5,48']},
+      {d:'2027-10-01', c:['01/10/2027','María','$113,47']},
+      {d:'2027-10-01', c:['01/10/2027','ARCA','$652,10']},
+      {d:'2027-10-01', c:['01/10/2027','Alarma','$39,13']},
+      {d:'2027-10-01', c:['01/10/2027','Yoli','$32,61']},
+      {d:'2027-10-01', c:['01/10/2027','Varios','$97,82']},
+      {d:'2027-11-01', c:['01/11/2027','Supermercado','$54,78']},
+      {d:'2027-11-01', c:['01/11/2027','Internet','$11,74']},
+      {d:'2027-11-01', c:['01/11/2027','Alquiler (personal)','$1.239,00']},
+      {d:'2027-11-01', c:['01/11/2027','Gas','$39,78']},
+      {d:'2027-11-01', c:['01/11/2027','Luz','$112,81']},
+      {d:'2027-11-01', c:['01/11/2027','Abono celulares','$5,48']},
+      {d:'2027-11-01', c:['01/11/2027','María','$113,47']},
+      {d:'2027-11-01', c:['01/11/2027','ARCA','$652,10']},
+      {d:'2027-11-01', c:['01/11/2027','Alarma','$39,13']},
+      {d:'2027-11-01', c:['01/11/2027','Yoli','$32,61']},
+      {d:'2027-11-01', c:['01/11/2027','Varios','$97,82']},
+    ]
+  },
+  anticipos_comerciales: {
+    note: 'Filas de la tabla "Anticipos Comerciales" del sheet (los de Conci ya están cancelados). Filtradas por "Vencimiento" contra el período elegido arriba.',
+    cols: ['Proveedor','Monto','TC','Monto USD','Vencimiento'],
+    rows: [
+      {d:'2026-08-29', c:['Conci','$20.000.000,00','1490','$13.422,82','29/08/2026']},
+      {d:'2026-08-29', c:['Conci','$38.890.202,69','1490','$26.100,81','29/08/2026']},
+      {d:'2026-11-30', c:['Cargill','—','—','$146.966,36','30/11/2026']},
+    ]
+  },
+};
+
+const NO_PERIOD_FILTER = new Set(); // (antes excluía venta_trigo/soja/maiz; ahora todas las categorías respetan el período seleccionado)
+
+function openDrawer(catKey, label){
+  const src = DETAIL_SOURCES[catKey];
+  document.getElementById('drawerTitle').textContent = label;
+  const noteEl = document.getElementById('drawerNote');
+  const tableEl = document.getElementById('drawerTable');
+
+  // período bounds: día puntual seleccionado, o el rango actualmente filtrado (se usa en ambas ramas de abajo)
+  let dMin, dMax, periodLabel;
+  if(selectedDay){
+    dMin = dMax = selectedDay;
+    periodLabel = fmtDate(selectedDay);
+  } else if(filtered.length){
+    dMin = filtered[0].fecha; dMax = filtered[filtered.length-1].fecha;
+    periodLabel = filtered.length===1 ? fmtDate(dMin) : `${fmtDate(dMin)} – ${fmtDate(dMax)}`;
+  } else {
+    dMin = '0000-01-01'; dMax = '9999-12-31'; periodLabel = 'todo el histórico';
+  }
+
+  if(!src){
+    // Sin tabla de origen propia en el sheet: igual mostramos de dónde sale el monto,
+    // usando los propios renglones de la tabla de Flujo Neto para el período seleccionado.
+    const rows = (selectedDay ? filtered.filter(d=>d.fecha===selectedDay) : filtered)
+      .filter(d => (d[catKey]||0) !== 0);
+    noteEl.textContent = `Período seleccionado: ${periodLabel}. Esta categoría no tiene una tabla de detalle propia en el sheet — se carga directo en la tabla de Flujo Neto. Estas son las fechas de esa tabla que componen el total del período.`;
+    if(rows.length === 0){
+      tableEl.innerHTML = '';
+      noteEl.textContent += ' — No hay movimientos de esta categoría en el período seleccionado.';
+    } else {
+      const thead = '<tr><th>Fecha</th><th>Monto</th></tr>';
+      const tbody = rows.map(d=>`<tr><td>${fmtDate(d.fecha)}${d.monthly?' (mensual)':''}</td><td>${fmt(d[catKey])}</td></tr>`).join('');
+      tableEl.innerHTML = thead + tbody;
+    }
+    document.getElementById('drawerBackdrop').classList.add('open');
+    return;
+  }
+
+  if(NO_PERIOD_FILTER.has(catKey)){
+    // categorías de venta de granos: son contratos puntuales, no movimientos diarios —
+    // la fecha de vencimiento del contrato casi nunca coincide con el día exacto del Flujo Neto, así que se muestran todos.
+    noteEl.textContent = src.note + ' Se muestran todos los contratos cargados (esta categoría no se filtra por período porque son ventas puntuales, no diarias).';
+    const thead = '<tr>' + src.cols.map(c=>`<th>${c}</th>`).join('') + '</tr>';
+    const tbody = src.rows.map(r=>'<tr>'+r.c.map(v=>`<td>${v}</td>`).join('')+'</tr>').join('');
+    tableEl.innerHTML = thead + tbody;
+    document.getElementById('drawerBackdrop').classList.add('open');
+    return;
+  }
+
+  const periodRows = src.rows.filter(r => r.d >= dMin && r.d <= dMax);
+  const notePrefix = `Período seleccionado: ${periodLabel}. `;
+  noteEl.textContent = notePrefix + src.note;
+  if(src.cols.length === 0){
+    tableEl.innerHTML = '';
+  } else if(periodRows.length === 0){
+    tableEl.innerHTML = '';
+    noteEl.textContent += ' — No hay filas de esta tabla con fecha dentro del período seleccionado.';
+  } else {
+    const thead = '<tr>' + src.cols.map(c=>`<th>${c}</th>`).join('') + '</tr>';
+    const tbody = periodRows.map(r=>'<tr>'+r.c.map(v=>`<td>${v}</td>`).join('')+'</tr>').join('');
+    tableEl.innerHTML = thead + tbody;
+  }
+  document.getElementById('drawerBackdrop').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('drawerBackdrop').classList.remove('open');
+}
+document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+document.getElementById('drawerBackdrop').addEventListener('click', (ev)=>{
+  if(ev.target.id === 'drawerBackdrop') closeDrawer();
+});
+
+let filtered = [];
+let activeTab = 'ing';
+let selectedDay = null;
+let viewMode = 'daily';
+
+const SUM_KEYS = ['efectivo','banco','cheques_cartera','anticipo','venta_trigo','venta_soja','venta_maiz',
+  'total_ingresos','cheques','prestamos','arrendamiento','gastos_directos','anticipos_comerciales',
+  'proveedores_agro','proveedores_otros','total_egresos','flujo_neto'];
+
+function aggregateMonthly(rows){
+  const map = {};
+  const order = [];
+  rows.forEach(d=>{
+    const ym = d.fecha.slice(0,7);
+    if(!map[ym]){
+      const obj = {fecha: ym+'-01', ym, monthly:true, flujo_acumulado: d.flujo_acumulado};
+      SUM_KEYS.forEach(k=> obj[k]=0);
+      map[ym] = obj;
+      order.push(ym);
+    }
+    const m = map[ym];
+    SUM_KEYS.forEach(k=> m[k]+=(d[k]||0));
+    m.flujo_acumulado = d.flujo_acumulado; // rows llegan en orden ascendente, así que el último pisa y queda el cierre del mes
+  });
+  return order.map(ym=>map[ym]);
+}
+
+function getChartData(){
+  return viewMode === 'monthly' ? aggregateMonthly(filtered) : filtered;
+}
+
+function fmtChartLabel(d){
+  if(!d.monthly) return fmtDate(d.fecha);
+  const [y,m] = d.ym.split('-');
+  const label = new Date(y, m-1, 1).toLocaleDateString('es-AR', {month:'short', year:'2-digit'});
+  return label.charAt(0).toUpperCase()+label.slice(1);
+}
+
+document.querySelectorAll('.view-tab').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    viewMode = b.dataset.view;
+    document.querySelectorAll('.view-tab').forEach(x=>x.classList.toggle('active', x===b));
+    renderFlowChart();
+    renderStackedChart('stackIngChart', 'stackIngLegend', CATS_ING);
+    renderStackedChart('stackEgrChart', 'stackEgrLegend', CATS_EGR);
+  });
+});
+const fmt = n => (n<0?'-$':'$') + Math.abs(n).toLocaleString('es-AR',{minimumFractionDigits:0, maximumFractionDigits:0});
+
+function populateMonths(data){
+  const sel = document.getElementById('monthSelect');
+  sel.innerHTML = '<option value="">Todos</option>';
+  const seen = new Set();
+  data.forEach(d=>{
+    const ym = d.fecha.slice(0,7);
+    seen.add(ym);
+  });
+  [...seen].sort().forEach(ym=>{
+    const [y,m] = ym.split('-');
+    const label = new Date(y, m-1, 1).toLocaleDateString('es-AR',{month:'long', year:'numeric'});
+    const opt = document.createElement('option');
+    opt.value = ym; opt.textContent = label.charAt(0).toUpperCase()+label.slice(1);
+    sel.appendChild(opt);
+  });
+}
+
+function applyFilters(){
+  const from = document.getElementById('dateFrom').value;
+  const to = document.getElementById('dateTo').value;
+  const month = document.getElementById('monthSelect').value;
+  filtered = RAW_DATA.filter(d=>{
+    if(month && d.fecha.slice(0,7) !== month) return false;
+    if(from && d.fecha < from) return false;
+    if(to && d.fecha > to) return false;
+    return true;
+  });
+  if(selectedDay && !filtered.some(d=>d.fecha===selectedDay)) selectedDay = null;
+  render();
+}
+
+function render(){
+  const totalIng = filtered.reduce((a,d)=>a+d.total_ingresos,0);
+  const totalEgr = filtered.reduce((a,d)=>a+d.total_egresos,0);
+  const net = totalIng - totalEgr;
+  const closingAcc = filtered.length ? filtered[filtered.length-1].flujo_acumulado : (RAW_DATA.length?RAW_DATA[RAW_DATA.length-1].flujo_acumulado:0);
+
+  document.getElementById('kpiIng').textContent = fmt(totalIng);
+  document.getElementById('kpiEgr').textContent = fmt(totalEgr);
+  const kn = document.getElementById('kpiNet');
+  kn.textContent = fmt(net); kn.className = 'val ' + (net>=0?'pos':'neg');
+  const ka = document.getElementById('kpiAcc');
+  ka.textContent = fmt(closingAcc); ka.className = 'val ' + (closingAcc>=0?'pos':'neg');
+  document.getElementById('kpiNetHint').textContent = filtered.length + ' día(s) en el período';
+  document.getElementById('kpiAccHint').textContent = filtered.length ? ('al ' + fmtDate(filtered[filtered.length-1].fecha)) : '—';
+
+  renderFlowChart();
+  renderComposition();
+  renderStackedChart('stackIngChart', 'stackIngLegend', CATS_ING);
+  renderStackedChart('stackEgrChart', 'stackEgrLegend', CATS_EGR);
+}
+
+function fmtDate(iso){
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+const NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs){
+  const el = document.createElementNS(NS, tag);
+  for(const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+function ensureTip(container){
+  let tip = container.querySelector('.svg-tip');
+  if(!tip){
+    tip = document.createElement('div');
+    tip.className = 'svg-tip';
+    container.appendChild(tip);
+  }
+  return tip;
+}
+
+function renderFlowChart(){
+  const container = document.getElementById('flowChart');
+  container.innerHTML = '';
+  document.getElementById('flowLegend').innerHTML = `
+    ${CATS_ING.map(c=>`<span><i style="background:${c.color}"></i>${c.label}</span>`).join('')}
+    ${CATS_EGR.map(c=>`<span><i style="background:${c.color}"></i>${c.label}</span>`).join('')}
+    <span><i style="background:#C9971F"></i>Saldo acumulado</span>`;
+
+  const chartData = getChartData();
+  document.querySelector('.card:nth-child(1) .card-sub').textContent =
+    viewMode==='monthly' ? 'Barras apiladas por categoría (ingresos vs egresos) por mes · Línea: saldo acumulado al cierre de cada mes'
+                          : 'Barras apiladas por categoría (ingresos vs egresos) por día · Línea: saldo acumulado';
+
+  if(chartData.length === 0){
+    container.innerHTML = '<div class="empty-note">Sin datos en el período seleccionado.</div>';
+    return;
+  }
+
+  const W = container.clientWidth || 600, H = container.clientHeight || 320;
+  const padL = 62, padR = 56, padT = 14, padB = 46;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const ing = chartData.map(d=>d.total_ingresos);
+  const egr = chartData.map(d=>d.total_egresos);
+  const acc = chartData.map(d=>d.flujo_acumulado);
+  const barMax = Math.max(1, ...ing, ...egr);
+  const accMin = Math.min(...acc, 0), accMax = Math.max(...acc, 0);
+  const accRange = (accMax - accMin) || 1;
+
+  const svg = svgEl('svg', {viewBox:`0 0 ${W} ${H}`, preserveAspectRatio:'none'});
+  const n = chartData.length;
+  const slot = plotW / n;
+  const barW = Math.max(1, Math.min(viewMode==='monthly'?28:14, slot*0.36));
+
+  // gridlines + y labels (bars axis)
+  const gridSteps = 4;
+  for(let i=0;i<=gridSteps;i++){
+    const val = barMax * i/gridSteps;
+    const y = padT + plotH - (val/barMax)*plotH;
+    svg.appendChild(svgEl('line', {x1:padL, x2:padL+plotW, y1:y, y2:y, stroke:'#E4E6DC', 'stroke-width':1}));
+    const t = svgEl('text', {x:padL-8, y:y+3, 'text-anchor':'end', 'font-size':9, fill:'#5B6558'});
+    t.textContent = fmt(val);
+    svg.appendChild(t);
+  }
+  // baseline
+  svg.appendChild(svgEl('line', {x1:padL, x2:padL+plotW, y1:padT+plotH, y2:padT+plotH, stroke:'#B9BEAC', 'stroke-width':1}));
+
+  const tip = ensureTip(container);
+
+  chartData.forEach((d, i)=>{
+    const cx = padL + slot*i + slot/2;
+    const label = fmtChartLabel(d);
+
+    let yCursorIng = padT + plotH;
+    CATS_ING.forEach(c=>{
+      const val = d[c.key] || 0;
+      if(val <= 0) return;
+      const h = (val/barMax)*plotH;
+      const y = yCursorIng - h;
+      const r = svgEl('rect', {x:cx-barW-1, y, width:barW, height:h, fill:c.color, class:'bar-hit'});
+      attachTip(r, tip, container, `${label}${d.monthly?' (total mensual)':''}<br>${c.label}: ${fmt(val)}<br><i>click para ver origen</i>`);
+      r.addEventListener('click', ()=>{
+        if(viewMode==='monthly') selectMonth(d.ym, 'ing'); else selectDay(d.fecha, 'ing');
+        openDrawer(c.key, c.label);
+      });
+      if(selectedDay===d.fecha && activeTab==='ing') r.setAttribute('stroke', '#1E2620'), r.setAttribute('stroke-width','1');
+      svg.appendChild(r);
+      yCursorIng = y;
+    });
+
+    let yCursorEgr = padT + plotH;
+    CATS_EGR.forEach(c=>{
+      const val = d[c.key] || 0;
+      if(val <= 0) return;
+      const h = (val/barMax)*plotH;
+      const y = yCursorEgr - h;
+      const r = svgEl('rect', {x:cx+1, y, width:barW, height:h, fill:c.color, class:'bar-hit'});
+      attachTip(r, tip, container, `${label}${d.monthly?' (total mensual)':''}<br>${c.label}: ${fmt(val)}<br><i>click para ver origen</i>`);
+      r.addEventListener('click', ()=>{
+        if(viewMode==='monthly') selectMonth(d.ym, 'egr'); else selectDay(d.fecha, 'egr');
+        openDrawer(c.key, c.label);
+      });
+      if(selectedDay===d.fecha && activeTab==='egr') r.setAttribute('stroke', '#1E2620'), r.setAttribute('stroke-width','1');
+      svg.appendChild(r);
+      yCursorEgr = y;
+    });
+  });
+
+  // accumulated line (secondary axis)
+  const pts = chartData.map((d,i)=>{
+    const cx = padL + slot*i + slot/2;
+    const cy = padT + plotH - ((d.flujo_acumulado-accMin)/accRange)*plotH;
+    return [cx, cy];
+  });
+  const path = pts.map((p,i)=> (i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  svg.appendChild(svgEl('path', {d:path, fill:'none', stroke:'#C9971F', 'stroke-width':2.2}));
+  pts.forEach((p,i)=>{
+    const c = svgEl('circle', {cx:p[0], cy:p[1], r:3.2, fill:'#C9971F', class:'bar-hit', opacity: (n>60 && viewMode!=='monthly')?0:1});
+    attachTip(c, tip, container, `${fmtChartLabel(chartData[i])}<br>Saldo acum.: ${fmt(chartData[i].flujo_acumulado)}`);
+    svg.appendChild(c);
+  });
+
+  // right axis labels (accumulated)
+  for(let i=0;i<=gridSteps;i++){
+    const val = accMin + accRange*i/gridSteps;
+    const y = padT + plotH - (i/gridSteps)*plotH;
+    const t = svgEl('text', {x:padL+plotW+8, y:y+3, 'text-anchor':'start', 'font-size':9, fill:'#C9971F'});
+    t.textContent = fmt(val);
+    svg.appendChild(t);
+  }
+
+  // x labels (sparse for daily, all for monthly since there are few)
+  const maxLabels = viewMode==='monthly' ? n : Math.max(4, Math.floor(plotW/58));
+  const step = Math.max(1, Math.ceil(n/maxLabels));
+  chartData.forEach((d,i)=>{
+    if(i % step !== 0 && i !== n-1) return;
+    const cx = padL + slot*i + slot/2;
+    const t = svgEl('text', {x:cx, y:padT+plotH+16, 'text-anchor':'middle', 'font-size':9, fill:'#5B6558'});
+    t.textContent = viewMode==='monthly' ? fmtChartLabel(d) : fmtDate(d.fecha).slice(0,5);
+    svg.appendChild(t);
+  });
+
+  container.appendChild(svg);
+}
+
+function attachTip(el, tip, container, html){
+  el.addEventListener('mousemove', (ev)=>{
+    const rect = container.getBoundingClientRect();
+    tip.style.left = (ev.clientX - rect.left) + 'px';
+    tip.style.top = (ev.clientY - rect.top) + 'px';
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+  });
+  el.addEventListener('mouseleave', ()=>{ tip.style.display = 'none'; });
+}
+
+function drawDoughnut(container, items, grand){
+  const W = container.clientWidth || 220, H = container.clientHeight || 220;
+  const size = Math.min(W, H);
+  const cx = W/2, cy = H/2, rOuter = size/2 - 6, rInner = rOuter*0.6;
+  const svg = svgEl('svg', {viewBox:`0 0 ${W} ${H}`});
+  const tip = ensureTip(container);
+
+  let angle = -Math.PI/2;
+  items.forEach(it=>{
+    const frac = it.total/grand;
+    const a0 = angle, a1 = angle + frac*2*Math.PI;
+    angle = a1;
+    const path = donutSlicePath(cx, cy, rInner, rOuter, a0, a1);
+    const p = svgEl('path', {d:path, fill:it.color, class:'bar-hit'});
+    attachTip(p, tip, container, `${it.label}<br>${fmt(it.total)} (${(frac*100).toFixed(1)}%)<br><i>click para ver origen</i>`);
+    p.addEventListener('click', ()=> openDrawer(it.key, it.label));
+    svg.appendChild(p);
+  });
+
+  const totalLabel = svgEl('text', {x:cx, y:cy-4, 'text-anchor':'middle', 'font-size':11, fill:'#5B6558'});
+  totalLabel.textContent = 'Total';
+  svg.appendChild(totalLabel);
+  const totalVal = svgEl('text', {x:cx, y:cy+13, 'text-anchor':'middle', 'font-size':13, 'font-weight':'700', fill:'#1E2620'});
+  totalVal.textContent = fmt(grand);
+  svg.appendChild(totalVal);
+
+  container.appendChild(svg);
+}
+
+function donutSlicePath(cx, cy, rInner, rOuter, a0, a1){
+  const largeArc = (a1-a0) > Math.PI ? 1 : 0;
+  const x0o = cx + rOuter*Math.cos(a0), y0o = cy + rOuter*Math.sin(a0);
+  const x1o = cx + rOuter*Math.cos(a1), y1o = cy + rOuter*Math.sin(a1);
+  const x0i = cx + rInner*Math.cos(a1), y0i = cy + rInner*Math.sin(a1);
+  const x1i = cx + rInner*Math.cos(a0), y1i = cy + rInner*Math.sin(a0);
+  return `M ${x0o} ${y0o} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x1o} ${y1o} L ${x0i} ${y0i} A ${rInner} ${rInner} 0 ${largeArc} 0 ${x1i} ${y1i} Z`;
+}
+
+function selectDay(fecha, tab){
+  selectedDay = fecha;
+  activeTab = tab;
+  document.querySelectorAll('.legend-tabs button[data-tab]').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  renderComposition();
+  renderFlowChart(); // re-render to show the highlighted bar
+  document.querySelector('.card:nth-child(2)').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function selectMonth(ym, tab){
+  selectedDay = null;
+  document.getElementById('monthSelect').value = ym;
+  document.getElementById('dateFrom').value = '';
+  document.getElementById('dateTo').value = '';
+  applyFilters(); // recalcula `filtered`, y adentro llama a render() -> renderComposition/renderFlowChart
+  activeTab = tab;
+  document.querySelectorAll('.legend-tabs button[data-tab]').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  renderComposition();
+  document.querySelector('.card:nth-child(2)').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function renderStackedChart(containerId, legendId, cats){
+  const container = document.getElementById(containerId);
+  const legendEl = document.getElementById(legendId);
+  container.innerHTML = '';
+  legendEl.innerHTML = cats.map(c=>`<span><i style="background:${c.color}"></i>${c.label}</span>`).join('');
+
+  const chartData = getChartData();
+  if(chartData.length === 0){
+    container.innerHTML = '<div class="empty-note">Sin datos en el período seleccionado.</div>';
+    return;
+  }
+
+  const W = container.clientWidth || 600, H = container.clientHeight || 320;
+  const padL = 62, padR = 16, padT = 14, padB = 46;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const totals = chartData.map(d => cats.reduce((a,c)=>a+(d[c.key]||0),0));
+  const maxTotal = Math.max(1, ...totals);
+  const n = chartData.length;
+  const slot = plotW / n;
+  const barW = Math.max(1, Math.min(viewMode==='monthly'?36:22, slot*0.6));
+
+  const svg = svgEl('svg', {viewBox:`0 0 ${W} ${H}`, preserveAspectRatio:'none'});
+  const tip = ensureTip(container);
+
+  const gridSteps = 4;
+  for(let i=0;i<=gridSteps;i++){
+    const val = maxTotal * i/gridSteps;
+    const y = padT + plotH - (val/maxTotal)*plotH;
+    svg.appendChild(svgEl('line', {x1:padL, x2:padL+plotW, y1:y, y2:y, stroke:'#E4E6DC', 'stroke-width':1}));
+    const t = svgEl('text', {x:padL-8, y:y+3, 'text-anchor':'end', 'font-size':9, fill:'#5B6558'});
+    t.textContent = fmt(val);
+    svg.appendChild(t);
+  }
+  svg.appendChild(svgEl('line', {x1:padL, x2:padL+plotW, y1:padT+plotH, y2:padT+plotH, stroke:'#B9BEAC', 'stroke-width':1}));
+
+  chartData.forEach((d,i)=>{
+    const cx = padL + slot*i + slot/2;
+    let yCursor = padT + plotH;
+    const label = fmtChartLabel(d);
+    cats.forEach(c=>{
+      const val = d[c.key] || 0;
+      if(val <= 0) return;
+      const h = (val/maxTotal)*plotH;
+      const y = yCursor - h;
+      const rect = svgEl('rect', {x:cx-barW/2, y, width:barW, height:h, fill:c.color, class:'bar-hit'});
+      attachTip(rect, tip, container, `${label}${d.monthly?' (mensual)':''}<br>${c.label}: ${fmt(val)}<br><i>click para ver origen</i>`);
+      rect.addEventListener('click', ()=>{
+        if(viewMode==='monthly') selectMonth(d.ym, cats===CATS_ING?'ing':'egr');
+        else selectDay(d.fecha, cats===CATS_ING?'ing':'egr');
+        openDrawer(c.key, c.label);
+      });
+      svg.appendChild(rect);
+      yCursor = y;
+    });
+  });
+
+  const maxLabels = viewMode==='monthly' ? n : Math.max(4, Math.floor(plotW/58));
+  const step = Math.max(1, Math.ceil(n/maxLabels));
+  chartData.forEach((d,i)=>{
+    if(i % step !== 0 && i !== n-1) return;
+    const cx = padL + slot*i + slot/2;
+    const t = svgEl('text', {x:cx, y:padT+plotH+16, 'text-anchor':'middle', 'font-size':9, fill:'#5B6558'});
+    t.textContent = viewMode==='monthly' ? fmtChartLabel(d) : fmtDate(d.fecha).slice(0,5);
+    svg.appendChild(t);
+  });
+
+  container.appendChild(svg);
+}
+
+function renderComposition(){
+  const cats = activeTab === 'ing' ? CATS_ING : CATS_EGR;
+  const sourceRows = selectedDay ? filtered.filter(d=>d.fecha===selectedDay) : filtered;
+
+  const subLabel = (activeTab==='ing' ? 'Composición de ingresos' : 'Composición de egresos')
+    + (selectedDay ? ` — ${fmtDate(selectedDay)}` : ' en el período filtrado');
+  const sub = document.getElementById('compSub');
+  sub.innerHTML = subLabel + (selectedDay ? ' <a href="#" id="clearDayBtn" style="font-size:.72rem; margin-left:6px;">(ver período completo)</a>' : '');
+  if(selectedDay){
+    document.getElementById('clearDayBtn').addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      selectedDay = null;
+      renderComposition();
+      renderFlowChart();
+    });
+  }
+
+  const totals = cats.map(c => ({...c, total: sourceRows.reduce((a,d)=>a+(d[c.key]||0),0)}));
+  const grand = totals.reduce((a,c)=>a+c.total,0);
+  const nonZero = totals.filter(c=>c.total>0);
+
+  const container = document.getElementById('compChart');
+  container.innerHTML = '';
+  const listEl = document.getElementById('compList');
+
+  if(nonZero.length===0){
+    const msg = selectedDay ? 'Sin movimientos de este tipo ese día.' : 'Sin movimientos de este tipo en el período seleccionado.';
+    container.innerHTML = `<div class="empty-note">${msg}</div>`;
+    listEl.innerHTML = `<div class="comp-empty">${msg}</div>`;
+    return;
+  }
+
+  drawDoughnut(container, nonZero, grand);
+  listEl.innerHTML = '';
+  nonZero.sort((a,b)=>b.total-a.total).forEach(c=>{
+    const pct = grand>0 ? (c.total/grand*100) : 0;
+    const row = document.createElement('div');
+    row.className = 'comp-row clickable';
+    row.style.flexDirection = 'column';
+    row.style.alignItems = 'stretch';
+    row.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="swatch" style="background:${c.color}"></div>
+        <div class="name">${c.label}</div>
+        <div class="amt">${fmt(c.total)}</div>
+        <div class="go">ver origen →</div>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct.toFixed(1)}%; background:${c.color}"></div></div>
+    `;
+    row.addEventListener('click', ()=> openDrawer(c.key, c.label));
+    listEl.appendChild(row);
+  });
+}
+
+document.querySelectorAll('.kpi').forEach(k=>{
+  k.addEventListener('click', ()=>{
+    const p = k.dataset.panel;
+    if(p==='ing' || p==='egr'){
+      selectedDay = null;
+      activeTab = p;
+      document.querySelectorAll('.legend-tabs button[data-tab]').forEach(b=>b.classList.toggle('active', b.dataset.tab===p));
+      renderComposition();
+      renderFlowChart();
+      document.querySelector('.card:nth-child(2)').scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+  });
+});
+document.querySelectorAll('.legend-tabs button[data-tab]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    selectedDay = null;
+    activeTab = b.dataset.tab;
+    document.querySelectorAll('.legend-tabs button[data-tab]').forEach(x=>x.classList.toggle('active', x===b));
+    renderComposition();
+    renderFlowChart();
+  });
+});
+
+document.getElementById('dateFrom').addEventListener('change', applyFilters);
+document.getElementById('dateTo').addEventListener('change', applyFilters);
+document.getElementById('monthSelect').addEventListener('change', ()=>{
+  document.getElementById('dateFrom').value='';
+  document.getElementById('dateTo').value='';
+  applyFilters();
+});
+document.getElementById('btnReset').addEventListener('click', ()=>{
+  document.getElementById('dateFrom').value='';
+  document.getElementById('dateTo').value='';
+  document.getElementById('monthSelect').value='';
+  applyFilters();
+});
+document.getElementById('btnConfig').addEventListener('click', ()=>{
+  const p = document.getElementById('configPanel');
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+});
+
+const SCRIPT_URL_KEY_PLACEHOLDER = 'https://script.google.com/macros/s/AKfycbxal5VFr192itM-LnvfqJdGKhLajk6wM2WzOhM3w1Dplnx0xqt11NIaVTBpUtspQxt3mw/exec';
+
+async function fetchFromAppsScript(url){
+  setStatus('Conectando con Apps Script...', false);
+  try{
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    if(!Array.isArray(data) || data.length===0) throw new Error('la respuesta no tiene filas de datos');
+    RAW_DATA.length = 0;
+    data.forEach(d=>RAW_DATA.push(d));
+    populateMonths(RAW_DATA);
+    applyFilters();
+    setStatus('Conectado — actualizado ' + new Date().toLocaleTimeString('es-AR'), true);
+    document.getElementById('configPanel').style.display='none';
+  }catch(err){
+    console.error(err);
+    setStatus('Error al conectar: ' + err.message + '. Si estás viendo esto dentro del chat de Claude, es esperable — abrí el archivo descargado en tu navegador.', false);
+  }
+}
+
+document.getElementById('btnSaveUrl').addEventListener('click', ()=>{
+  const url = document.getElementById('scriptUrlInput').value.trim();
+  if(!url){ alert('Pegá la URL de tu Apps Script (termina en /exec).'); return; }
+  fetchFromAppsScript(url);
+});
+document.getElementById('btnRefreshLive').addEventListener('click', ()=>{
+  const url = document.getElementById('scriptUrlInput').value.trim();
+  if(url) fetchFromAppsScript(url);
+  else document.getElementById('configPanel').style.display='block';
+});
+if(SCRIPT_URL_KEY_PLACEHOLDER){
+  document.getElementById('scriptUrlInput').value = SCRIPT_URL_KEY_PLACEHOLDER;
+  fetchFromAppsScript(SCRIPT_URL_KEY_PLACEHOLDER);
+}
+
+function setStatus(text, live){
+  document.getElementById('statusText').textContent = text;
+  document.getElementById('statusDot').className = 'dot' + (live ? '' : ' stale');
+}
+
+// init
+populateMonths(RAW_DATA);
+applyFilters();
+</script>
+
+</body>
+</html>
